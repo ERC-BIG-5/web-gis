@@ -36,7 +36,6 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -91,7 +90,7 @@ jspm_packages/
 .pnpm-store/
 
 # ---------- Vue / Vite / Frontend build ----------
-dist/
+# web/dist/ is intentionally tracked so end users don't need npm
 dist-ssr/
 .vite/
 .nuxt/

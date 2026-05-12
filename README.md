@@ -6,7 +6,9 @@ attached images and CES (Cultural Ecosystem Services) classifications.
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) (Python 3.13+)
-- Node.js 20+ (only needed to rebuild the frontend)
+- Node.js 20+ — **only** needed if you want to edit the frontend.
+  The prebuilt `web/dist/` is checked into the repo, so a fresh clone
+  can start the server without npm.
 
 ## Run
 
@@ -25,15 +27,20 @@ Windows:
 scripts\start.bat
 ```
 
-To rebuild the frontend after editing `web/`:
+The launcher auto-rebuilds the frontend (`npm run build`) **only if**
+`web/node_modules/` exists — i.e. only on machines where you've run
+`npm install`. Fresh clones skip the build and serve the shipped
+`web/dist/`.
+
+To set up frontend development:
 
 ```bash
 cd web
 npm install
-npm run build
+# from now on, every ./scripts/start.sh will rebuild before serving
 ```
 
-For frontend dev with hot reload: `npm run dev` (proxy/CORS may need
+For hot-reload dev: `npm run dev` in `web/` (proxy/CORS may need
 tweaking against the running server).
 
 ## Project layout
