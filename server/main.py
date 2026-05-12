@@ -10,92 +10,33 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "geo-datasets"
 IMAGES_DIR = ROOT / "data" / "images"
 WEB_DIST = ROOT / "web" / "dist"
+LOCATIONS_CONFIG_PATH = ROOT / "data" / "locations.json"
 
-CES_VALUES = [
-    {"key": "physical_recreation",     "short": "PHY", "name": "physical recreation"},
-    {"key": "experiential_recreation", "short": "EXP", "name": "experiential recreation"},
-    {"key": "scientific",              "short": "SCI", "name": "scientific"},
-    {"key": "educational",             "short": "EDU", "name": "educational"},
-    {"key": "heritage",                "short": "HER", "name": "heritage"},
-    {"key": "aesthetics",              "short": "AES", "name": "aesthetics"},
-    {"key": "social_relations",        "short": "SOC", "name": "social relations"},
-    {"key": "symbolic",                "short": "SYM", "name": "symbolic"},
-    {"key": "sacred_religious",        "short": "SAC", "name": "sacred / religious"},
-    {"key": "entertainment",           "short": "ENT", "name": "entertainment"},
-    {"key": "existence",               "short": "EXI", "name": "existence"},
-    {"key": "bequest",                 "short": "BEQ", "name": "bequest"},
-]
 
-SHORT_TO_SNAKE = {
-    "PHY": "physical_recreation",
-    "EXP": "experiential_recreation",
-    "SCI": "scientific",
-    "EDU": "educational",
-    "HER": "heritage",
-    "AES": "aesthetics",
-    "SOC": "social_relations",
-    "SYM": "symbolic",
-    "SAC": "sacred_religious",
-    "ENT": "entertainment",
-    "EXI": "existence",
-    "BEQ": "bequest",
-}
-SNAKE_TO_SHORT = {v: k for k, v in SHORT_TO_SNAKE.items()}
+def _resolve_refs(obj, refs):
+    if isinstance(obj, str) and obj.startswith("@"):
+        key = obj[1:]
+        if key not in refs:
+            raise ValueError(f"unknown reference @{key} in locations.json")
+        return refs[key]
+    if isinstance(obj, dict):
+        return {k: _resolve_refs(v, refs) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_resolve_refs(v, refs) for v in obj]
+    return obj
+
+
+with LOCATIONS_CONFIG_PATH.open() as _f:
+    _cfg = json.load(_f)
+CES_VALUES = _cfg["ces_values"]
+LOCATION_CONFIG = _resolve_refs(_cfg["locations"], {"ces_values": CES_VALUES})
+
+SHORT_TO_SNAKE = {v["short"]: v["key"] for v in CES_VALUES}
+SNAKE_TO_SHORT = {v["key"]: v["short"] for v in CES_VALUES}
 
 
 def _ces_short(ces_list):
     return " ".join(SNAKE_TO_SHORT.get(k, k) for k in ces_list)
-
-LOCATION_CONFIG = {
-    "barcelona": {
-        "base_media_path": "barcelona",
-        "classification": {
-            "label": "CES classes",
-            "filters": [{"field": "ces", "values": CES_VALUES, "default": "all"}],
-        },
-        "popup_fields": [
-            {"field": "name"},
-            {"field": "ces", "label": "CES"},
-        ],
-        "evaluator": {
-            "label": "CES evaluation",
-            "field": "ces",
-            "values": CES_VALUES,
-        },
-    },
-    "the_hague": {
-        "base_media_path": "the_hague",
-        "classification": {
-            "label": "Mistral classification",
-            "filters": [
-                {
-                    "field": "nature",
-                    "label": "nature in",
-                    "values": [
-                        {"key": "text", "name": "text"},
-                        {"key": "images", "name": "images"},
-                    ],
-                    "default": "all",
-                },
-                {"field": "ces", "values": CES_VALUES, "default": "all"},
-            ],
-        },
-        "popup_fields": [
-            {"field": "id", "label": "ID"},
-            {"field": "text", "label": "text"},
-            {"field": "nature_text", "label": "nature in text"},
-            {"field": "nature_images", "label": "nature in images"},
-            {"field": "nature_terms_text", "label": "nature terms (text)"},
-            {"field": "nature_terms_images", "label": "nature terms (images)"},
-            {"field": "ces", "label": "CES"},
-        ],
-        "evaluator": {
-            "label": "CES evaluation",
-            "field": "ces",
-            "values": CES_VALUES,
-        },
-    },
-}
 
 THE_HAGUE_MODEL = "Mistral-Small-3.2-24B-Instruct-2506"
 
