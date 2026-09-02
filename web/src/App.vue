@@ -49,6 +49,16 @@ function onCurrent(payload) {
   if (m && coords) {
     m.jumpTo({ center: coords, zoom: Math.max(m.getZoom(), 14) })
   }
+  // else: the (lazy) map is not up yet; onValMapReady applies the view.
+}
+
+function onValMapReady({ map }) {
+  const coords = currentFC.value?.features?.[0]?.geometry?.coordinates
+  if (coords) map.jumpTo({ center: coords, zoom: 14 })
+}
+
+function onBrowseMapReady({ fit }) {
+  if (rawPoints.value) fit(rawPoints.value)
 }
 
 function onValidated({ feature, feature_id, status }) {
@@ -421,6 +431,7 @@ function fitPopup(map, popup) {
       <MapView
         key="validate-map"
         ref="valMapRef"
+        @ready="onValMapReady"
         :points="currentFC"
         :cluster="false"
         :done="doneFC"
@@ -452,6 +463,7 @@ function fitPopup(map, popup) {
     key="browse-map"
     ref="mapRef"
     :points="filteredPoints"
+    @ready="onBrowseMapReady"
     @point-click="onPointClick"
   >
     <div class="menu">

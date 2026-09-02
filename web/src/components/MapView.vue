@@ -47,7 +47,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['point-click', 'cluster-list'])
+const emit = defineEmits(['point-click', 'cluster-list', 'ready'])
 
 const container = ref(null)
 const map = shallowRef(null)
@@ -367,6 +367,9 @@ onMounted(() => {
     if (props.points) applyPoints(props.points)
     if (props.done) applyDone(props.done)
   })
+  // MapView is loaded lazily, so the parent may already have data by the time
+  // the map exists. Hand it the map so it can apply the pending view.
+  emit('ready', { map: map.value, fit })
 })
 
 watch(() => props.points, applyPoints)
