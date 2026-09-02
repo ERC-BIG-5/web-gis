@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data" / "geo-datasets"
+DATA_DIR = ROOT / "data" / "geo-datasets" / "filtered"
 IMAGES_DIR = ROOT / "data" / "images"
 WEB_DIST = ROOT / "web" / "dist"
 LOCATIONS_CONFIG_PATH = ROOT / "data" / "locations.json"
@@ -629,5 +629,5 @@ if __name__ == "__main__":
         s.close()
     except OSError:
         lan_ip = "127.0.0.1"
-    print(f"\n  Local:   http://127.0.0.1:8955\n  Network: http://{lan_ip}:8955  <- participants use this\n")
+    print(f"\n  Local:   http://127.0.0.1:8955\n  Network: http://{lan_ip}:8955  <-use this\n")
     uvicorn.run(app, host="0.0.0.0", port=8955)

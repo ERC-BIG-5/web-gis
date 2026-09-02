@@ -12,7 +12,6 @@ const doneAll = ref(false)
 const loadingNext = ref(false)
 const error = ref('')
 
-const natureChoice = ref(null) // 'image' | 'text' | 'both' | 'none'
 const judgments = ref({}) // ces key -> true | false
 const comment = ref('')
 const locationWrong = ref(false)
@@ -75,7 +74,6 @@ const fullImg = computed(() => imgUrl(1600))
 
 // ---- flow ----------------------------------------------------------------
 function resetForm() {
-  natureChoice.value = null
   judgments.value = {}
   added.value = []
   comment.value = ''
@@ -112,9 +110,11 @@ async function loadNext() {
 
 const canSave = computed(() => {
   if (!current.value || loadingNext.value) return false
-  if (!natureChoice.value) return false
-  if (natureChoice.value === 'none') return true
-  return cesKeys.value.every((k) => judgments.value[k] === true || judgments.value[k] === false)
+  // every category the model assigned must be judged; posts without any
+  // assigned category can be saved straight away
+  return cesKeys.value.every(
+    (k) => judgments.value[k] === true || judgments.value[k] === false,
+  )
 })
 
 async function submit(payloadExtra) {
@@ -148,13 +148,10 @@ async function submit(payloadExtra) {
 
 function save() {
   if (!canSave.value) return
-  const isNone = natureChoice.value === 'none'
-  const judged = isNone ? {} : { ...judgments.value }
-  if (!isNone) {
-    for (const k of added.value) judged[k] = 'added'
-  }
+  const judged = { ...judgments.value }
+  for (const k of added.value) judged[k] = 'added'
   submit({
-    nature_elements: natureChoice.value,
+    nature_elements: null,
     ces_judgments: judged,
     comment: comment.value.trim() || null,
     location_incorrect: locationWrong.value,
@@ -174,7 +171,6 @@ function setJudgment(key, val) {
 }
 
 // ---- keyboard ------------------------------------------------------------
-const NATURE_KEYS = { 1: 'image', 2: 'text', 3: 'both', 4: 'none' }
 function onKey(e) {
   const tag = e.target?.tagName
   if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return
@@ -186,10 +182,7 @@ function onKey(e) {
     lightbox.value = false
     return
   }
-  if (NATURE_KEYS[e.key] && current.value) {
-    natureChoice.value = NATURE_KEYS[e.key]
-    e.preventDefault()
-  } else if (e.key === 'Enter' && canSave.value) {
+  if (e.key === 'Enter' && canSave.value) {
     save()
     e.preventDefault()
   }
@@ -256,26 +249,10 @@ const pct = computed(() => {
         </p>
       </div>
 
-      <!-- step 1 -->
+      <!-- CES validation -->
       <div class="step">
-        <div class="step-label">1 · Does this post contain nature elements?</div>
-        <div class="nature-btns">
-          <button
-            v-for="(val, key) in { 1: 'image', 2: 'text', 3: 'both', 4: 'none' }"
-            :key="val"
-            :class="['nature-btn', { active: natureChoice === val }]"
-            @click="natureChoice = val"
-          >
-            <span class="kbd">{{ key }}</span>
-            {{ val === 'image' ? 'In image' : val === 'text' ? 'In text' : val === 'both' ? 'In both' : 'None' }}
-          </button>
-        </div>
-      </div>
-
-      <!-- step 2 -->
-      <div class="step" :class="{ disabled: natureChoice === 'none' }">
         <div class="step-head">
-          <div class="step-label">2 · Do you agree with the model's CES categories?</div>
+          <div class="step-label">Do you agree with the model's CES categories?</div>
           <button type="button" class="defs-link" @click="defsOpen = true">
             CES definitions
           </button>
@@ -292,7 +269,6 @@ const pct = computed(() => {
               type="button"
               class="chip-btn no"
               :class="{ on: judgments[k] === false }"
-              :disabled="natureChoice === 'none'"
               title="disagree"
               @click="setJudgment(k, false)"
             >✗</button>
@@ -300,7 +276,6 @@ const pct = computed(() => {
               type="button"
               class="chip-btn yes"
               :class="{ on: judgments[k] === true }"
-              :disabled="natureChoice === 'none'"
               title="agree"
               @click="setJudgment(k, true)"
             >✓</button>
@@ -315,7 +290,6 @@ const pct = computed(() => {
               type="button"
               class="add-pill"
               :class="{ on: added.includes(k) }"
-              :disabled="natureChoice === 'none'"
               :title="cesMeta[k]?.name ?? k"
               @click="toggleAdded(k)"
             >
@@ -582,11 +556,6 @@ const pct = computed(() => {
   color: #555;
   margin-bottom: 6px;
 }
-.step.disabled .chips,
-.step.disabled .add-section {
-  opacity: 0.35;
-  pointer-events: none;
-}
 .add-section {
   margin-top: 10px;
 }
@@ -633,39 +602,6 @@ const pct = computed(() => {
 }
 .add-plus {
   font-size: 12px;
-}
-.nature-btns {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-.nature-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 10px 4px;
-  font-size: 13px;
-  border: 1.5px solid #ddd;
-  border-radius: 8px;
-  background: #fafafa;
-  cursor: pointer;
-}
-.nature-btn:hover {
-  border-color: #93c5fd;
-}
-.nature-btn.active {
-  border-color: #1b6cd9;
-  background: #dbeafe;
-  font-weight: 600;
-}
-.kbd {
-  font-size: 10px;
-  color: #888;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  padding: 0 4px;
-  background: #fff;
 }
 .chips {
   display: flex;
