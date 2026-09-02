@@ -1,11 +1,11 @@
 <script setup>
-import { computed, createApp, h, nextTick, onMounted, ref, watch } from 'vue'
-import maplibregl from 'maplibre-gl'
-import MapView from './components/MapView.vue'
+import { computed, createApp, h, nextTick, onMounted, ref, watch, defineAsyncComponent } from 'vue'
 import CesEvaluator from './components/CesEvaluator.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import ValidationPanel from './components/ValidationPanel.vue'
 import FacilitatorView from './components/FacilitatorView.vue'
+// Lazy: keeps maplibre-gl out of the initial bundle (login/facilitator don't need it).
+const MapView = defineAsyncComponent(() => import('./components/MapView.vue'))
 
 // ---- workshop mode state --------------------------------------------------
 const mode = ref('login') // 'login' | 'validate' | 'browse' | 'facilitator'
@@ -261,7 +261,7 @@ function formatVal(v) {
   return String(v)
 }
 
-function onPointClick({ feature, map, lngLat }) {
+async function onPointClick({ feature, map, lngLat }) {
   const props = feature.properties ?? {}
   const id = props.id ?? feature.id ?? ''
   const imageName = props.image_name ?? ''
@@ -364,6 +364,8 @@ function onPointClick({ feature, map, lngLat }) {
   })
   root.appendChild(btn)
 
+  // maplibre-gl is already loaded by MapView at this point; this resolves instantly.
+  const { default: maplibregl } = await import('maplibre-gl')
   const popup = new maplibregl.Popup({
     closeButton: false,
     anchor: 'top',
