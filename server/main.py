@@ -437,23 +437,32 @@ def session_next(session_id: int):
         prog = _progress(conn, session_id)
         if prog["validated"] >= prog["target"]:
             return {"done": True, "progress": prog}
-        row = conn.execute(
-            "SELECT position, feature_id FROM queue"
-            " WHERE session_id=? AND status='pending' ORDER BY position LIMIT 1",
-            (session_id,),
-        ).fetchone()
-        if row is None:
-            return {"done": True, "progress": prog}
         ses = conn.execute(
             "SELECT case_study FROM sessions WHERE id=?", (session_id,)
         ).fetchone()
-    ds = _dataset(ses["case_study"])
-    feature = ds["by_id"].get(row["feature_id"])
-    if feature is None:
-        raise HTTPException(
-            status_code=500,
-            detail=f"queued feature {row['feature_id']} missing from dataset",
-        )
+        ds = _dataset(ses["case_study"])
+        while True:
+            row = conn.execute(
+                "SELECT position, feature_id FROM queue"
+                " WHERE session_id=? AND status='pending' ORDER BY position LIMIT 1",
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return {"done": True, "progress": prog}
+            feature = ds["by_id"].get(row["feature_id"])
+            if feature is not None:
+                break
+            # The queue was built against an older version of the dataset.
+            # Drop the stale entry instead of failing the whole session.
+            print(
+                f"[session {session_id}] feature {row['feature_id']} missing"
+                " from dataset, marking queue entry 'missing'"
+            )
+            conn.execute(
+                "UPDATE queue SET status='missing' WHERE session_id=? AND position=?",
+                (session_id, row["position"]),
+            )
+        prog = _progress(conn, session_id)
     return {
         "done": False,
         "position": row["position"],
