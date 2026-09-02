@@ -54,7 +54,8 @@ ProtectClock=yes
 ProtectHostname=yes
 RestrictNamespaces=yes
 RestrictRealtime=yes
-MemoryDenyWriteExecute=yes
+# MemoryDenyWriteExecute is deliberately NOT set: CPython 3.13 segfaults at
+# startup under it (native extensions need W+X mappings).
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
