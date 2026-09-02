@@ -365,6 +365,14 @@ def _build_queue(location: str, seed: int, target: int) -> list[str]:
     return rng.sample(ids, qlen)
 
 
+def _csv_safe(value):
+    """Neutralise spreadsheet formula injection: a cell starting with = + - @
+    (or tab/CR) is executed by Excel/LibreOffice when the CSV is opened."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -608,7 +616,7 @@ def export(case_study: str, format: str = "csv"):
         writer.writerow(
             [
                 rec["case_study"],
-                rec["participant"],
+                _csv_safe(rec["participant"]),
                 rec["session_id"],
                 rec["feature_id"],
                 rec["nature_elements"] or "",
@@ -625,8 +633,8 @@ def export(case_study: str, format: str = "csv"):
                 for k in ces_cols
             ]
             + [
-                rec["comment"] or "",
-                rec["skipped_reason"] or "",
+                _csv_safe(rec["comment"] or ""),
+                _csv_safe(rec["skipped_reason"] or ""),
                 rec["elapsed_ms"] if rec["elapsed_ms"] is not None else "",
                 rec["created_at"],
             ]
