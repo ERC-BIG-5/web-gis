@@ -13,7 +13,16 @@ attached images and CES (Cultural Ecosystem Services) classifications.
 ## Run
 
 The server serves both the API and the prebuilt frontend on
-`http://127.0.0.1:8955`.
+`http://127.0.0.1:8955` by default.
+
+Port, bind address and URL prefix are read from `server/.env` — copy
+`server/.env.template` and edit, or set them as environment variables:
+
+```bash
+cp server/.env.template server/.env   # then edit PORT / HOST / BASE_PATH
+# or one-off:
+PORT=9000 ./scripts/start.sh
+```
 
 Linux / macOS:
 
@@ -27,7 +36,7 @@ Windows:
 scripts\start.bat
 ```
 
-The launcher auto-rebuilds the frontend (`npm run build`) **only if**
+The launcher auto-rebuilds the frontend (`scripts/build.sh`) **only if**
 `web/node_modules/` exists — i.e. only on machines where you've run
 `npm install`. Fresh clones skip the build and serve the shipped
 `web/dist/`.
@@ -56,6 +65,8 @@ data/
 server/main.py         FastAPI app
 web/                   Vue 3 + Vite frontend
 scripts/start.sh|.bat  launcher
+scripts/build.sh       build web/dist (system npm, or Node via uvx)
+server/.env.template   PORT / HOST / BASE_PATH defaults — copy to server/.env
 ```
 
 ## Adding a new city

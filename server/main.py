@@ -5,12 +5,29 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data" / "geo-datasets"
 IMAGES_DIR = ROOT / "data" / "images"
 WEB_DIST = ROOT / "web" / "dist"
 LOCATIONS_CONFIG_PATH = ROOT / "data" / "locations.json"
+
+
+class Settings(BaseSettings):
+    """Runtime config from server/.env (see server/.env.template) or the
+    environment. Env vars win over the file."""
+
+    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parent / ".env")
+
+    host: str = "127.0.0.1"
+    port: int = 8955
+    # Public URL prefix when served behind a reverse proxy that strips it,
+    # e.g. "/web-gis". Only affects /docs and OpenAPI URLs; routes stay at root.
+    base_path: str = ""
+
+
+settings = Settings()
 
 
 def _resolve_refs(obj, refs):
@@ -76,7 +93,7 @@ TRANSFORMS = {
     "barcelona": _flatten_barcelona,
 }
 
-app = FastAPI()
+app = FastAPI(root_path=settings.base_path)
 app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
@@ -141,4 +158,4 @@ if WEB_DIST.is_dir():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8955)
+    uvicorn.run(app, host=settings.host, port=settings.port)
