@@ -140,7 +140,8 @@ def _transform_for(location):
         return _make_model_transform(model)
     return None
 
-app = FastAPI(root_path=settings.base_path)
+# No interactive API docs: the app has no authentication, so do not advertise routes.
+app = FastAPI(root_path=settings.base_path, docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
