@@ -1,4 +1,9 @@
-data/images
+# case-study data lives outside git (see README)
+data/
+
+# VM deploy files (kept locally on the server)
+web-gis.service
+nginx_web-gis.conf
 
 # ---------- OS / Editor ----------
 .DS_Store
@@ -90,7 +95,8 @@ jspm_packages/
 .pnpm-store/
 
 # ---------- Vue / Vite / Frontend build ----------
-# web/dist/ is intentionally tracked so end users don't need npm
+# web/dist/ is built by scripts/build.sh on first start
+web/dist/
 dist-ssr/
 .vite/
 .nuxt/

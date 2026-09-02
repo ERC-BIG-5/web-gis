@@ -6,9 +6,21 @@ attached images and CES (Cultural Ecosystem Services) classifications.
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/) (Python 3.13+)
-- Node.js 20+ — **only** needed if you want to edit the frontend.
-  The prebuilt `web/dist/` is checked into the repo, so a fresh clone
-  can start the server without npm.
+- Node.js 20+ is optional. `web/dist/` is not tracked; the launcher
+  builds it on first start, using system npm or a Node runtime fetched
+  via `uvx` (needs network on first run).
+
+## Data
+
+`data/` is **not tracked** in git. Before starting, place these there
+(ask a team member for a copy):
+
+```
+data/locations.json      per-city UI config
+data/world.geojson       background world layer
+data/geo-datasets/       GeoJSON per city
+data/images/<city>/      orig/ and thumb/ images
+```
 
 ## Run
 
@@ -36,10 +48,9 @@ Windows:
 scripts\start.bat
 ```
 
-The launcher auto-rebuilds the frontend (`scripts/build.sh`) **only if**
-`web/node_modules/` exists — i.e. only on machines where you've run
-`npm install`. Fresh clones skip the build and serve the shipped
-`web/dist/`.
+The launcher builds the frontend (`scripts/build.sh`) when `web/dist/`
+is missing, and rebuilds on every start once `web/node_modules/` exists
+— i.e. on machines where you've run `npm install`.
 
 To set up frontend development:
 

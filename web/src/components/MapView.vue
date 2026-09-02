@@ -258,7 +258,7 @@ async function applyPoints(data) {
   }
   registerImageHandler(m, () => {
     const base = props.points?.base_media_path
-    return base ? `/images/${base}/thumb` : null
+    return base ? `images/${base}/thumb` : null
   })
   const src = m.getSource(SOURCE_ID)
   if (src) src.setData(data)

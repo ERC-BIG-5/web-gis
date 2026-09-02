@@ -83,7 +83,7 @@ const filteredPoints = computed(() => {
 
 onMounted(async () => {
   try {
-    const res = await fetch('/locations')
+    const res = await fetch('locations')
     locations.value = await res.json()
     selected.value = locations.value.includes('the_hague')
       ? 'the_hague'
@@ -99,7 +99,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch(`/geo-dataset?location=${encodeURIComponent(selected.value)}`)
+    const res = await fetch(`geo-dataset?location=${encodeURIComponent(selected.value)}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     rawPoints.value = await res.json()
     await nextTick()
@@ -151,7 +151,7 @@ function onPointClick({ feature, map, lngLat }) {
   const imageName = props.image_name ?? ''
   const base = rawPoints.value?.base_media_path
   const scaledUrl = base && imageName
-    ? `/scaled?base=${encodeURIComponent(base)}&name=${encodeURIComponent(imageName)}`
+    ? `scaled?base=${encodeURIComponent(base)}&name=${encodeURIComponent(imageName)}`
     : ''
 
   const fields = popupFields.value ?? [{ field: 'name' }, { field: 'ces' }]
@@ -204,7 +204,7 @@ function onPointClick({ feature, map, lngLat }) {
     if (evalApp) return
     const cfg = evaluatorConfig.value
     if (!cfg) {
-      fetch(`/evaluate?id=${encodeURIComponent(id)}`).catch(() => {})
+      fetch(`evaluate?id=${encodeURIComponent(id)}`).catch(() => {})
       return
     }
     const modelKeys = Array.isArray(props[cfg.field]) ? props[cfg.field] : []
@@ -224,7 +224,7 @@ function onPointClick({ feature, map, lngLat }) {
             },
             onSubmit: async (eval_) => {
               try {
-                const res = await fetch('/evaluate', {
+                const res = await fetch('evaluate', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ id, evaluation: eval_, field: cfg.field }),
