@@ -1,0 +1,64 @@
+# systemd unit for web-gis, hardened.
+#
+# Install (paths assume the repo at /home/ubuntu/projects/web-gis):
+#   cp deploy/web-gis.service /home/ubuntu/projects/web-gis/web-gis.service
+#   sudo systemctl link /home/ubuntu/projects/web-gis/web-gis.service
+#   sudo systemctl enable --now web-gis
+# After editing: sudo systemctl daemon-reload && sudo systemctl restart web-gis
+# PORT / HOST / BASE_PATH come from server/.env.
+#
+# Sandbox summary: the process sees a read-only system, an empty home except
+# the project tree (read-only) and the uv-managed Python, and can write only
+# to data/ (validation.db). No capabilities, no privilege escalation, only
+# the syscalls a normal service needs.
+
+[Unit]
+Description=web-gis (FastAPI + prebuilt Vue frontend)
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/projects/web-gis/server
+# Run the venv's interpreter directly: no uv at runtime, so no uv cache needed.
+# Keep the venv in sync with:  cd server && uv sync
+ExecStart=/home/ubuntu/projects/web-gis/server/.venv/bin/python main.py
+Restart=on-failure
+RestartSec=3
+Environment=PYTHONUNBUFFERED=1
+UMask=0027
+
+# --- filesystem ---
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindReadOnlyPaths=/home/ubuntu/projects/web-gis /home/ubuntu/.local/share/uv/python
+BindPaths=/home/ubuntu/projects/web-gis/data
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProcSubset=pid
+
+# --- privileges ---
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+# --- kernel / namespaces ---
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

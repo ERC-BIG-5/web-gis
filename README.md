@@ -64,6 +64,14 @@ npm install
 For hot-reload dev: `npm run dev` in `web/` (proxy/CORS may need
 tweaking against the running server).
 
+## Deploy (systemd + nginx)
+
+`deploy/web-gis.service` is a hardened systemd unit (read-only system,
+home hidden except the project, writes only to `data/`). Copy it to the
+repo root on the server, `systemctl link` it, and put `PORT=...` and
+`HOST=127.0.0.1` in `server/.env`. Serve it behind a reverse proxy; the
+frontend uses relative URLs, so any path prefix works.
+
 ## Project layout
 
 ```

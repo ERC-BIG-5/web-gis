@@ -3,7 +3,7 @@ data/
 data_prev/
 
 # VM deploy files (kept locally on the server)
-web-gis.service
+/web-gis.service
 nginx_web-gis.conf
 
 # ---------- OS / Editor ----------
