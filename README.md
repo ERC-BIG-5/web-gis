@@ -72,6 +72,12 @@ repo root on the server, `systemctl link` it, and put `PORT=...` and
 `HOST=127.0.0.1` in `server/.env`. Serve it behind a reverse proxy; the
 frontend uses relative URLs, so any path prefix works.
 
+`deploy/nginx_web-gis.conf` + `nginx_web-gis-common.conf` serve the app
+under `/web-gis/` with security headers and a per-IP rate limit on the
+session endpoints; copy both to the repo root on the server and `include`
+the first from your `server {}` block. `deploy/nginx_web-gis-ratelimit.conf`
+goes to `/etc/nginx/conf.d/`.
+
 ## Project layout
 
 ```

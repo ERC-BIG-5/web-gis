@@ -4,7 +4,8 @@ data_prev/
 
 # VM deploy files (kept locally on the server)
 /web-gis.service
-nginx_web-gis.conf
+/nginx_web-gis.conf
+/nginx_web-gis-common.conf
 
 # ---------- OS / Editor ----------
 .DS_Store
