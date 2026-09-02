@@ -4,6 +4,7 @@ import io
 import json
 import math
 import random
+import re
 import sqlite3
 from datetime import datetime, timezone
 from io import BytesIO
@@ -19,6 +20,24 @@ DATA_DIR = ROOT / "data" / "geo-datasets" / "filtered"
 IMAGES_DIR = ROOT / "data" / "images"
 WEB_DIST = ROOT / "web" / "dist"
 LOCATIONS_CONFIG_PATH = ROOT / "data" / "locations.json"
+
+# User-supplied path segments (location names, image base dirs, file names) must
+# be plain names: no separators, no leading dot, no "..". Paths built from them
+# are additionally checked to resolve inside their root directory.
+_SAFE_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+
+
+def _safe_segment(value: str, what: str) -> str:
+    if not value or ".." in value or not _SAFE_SEGMENT.fullmatch(value):
+        raise HTTPException(status_code=400, detail=f"invalid {what}")
+    return value
+
+
+def _under(root: Path, path: Path) -> Path:
+    resolved = path.resolve()
+    if not resolved.is_relative_to(root.resolve()):
+        raise HTTPException(status_code=400, detail="invalid path")
+    return resolved
 
 
 class Settings(BaseSettings):
@@ -127,7 +146,8 @@ app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 @app.get("/geo-dataset")
 def geo_dataset(location: str):
-    path = DATA_DIR / f"{location}.json"
+    _safe_segment(location, "location")
+    path = _under(DATA_DIR, DATA_DIR / f"{location}.json")
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"unknown location: {location}")
     with path.open(encoding="utf-8") as f:
@@ -169,7 +189,10 @@ def world():
 
 @app.get("/scaled")
 def scaled(base: str, name: str, max_side: int = 400):
-    path = IMAGES_DIR / base / "orig" / name
+    _safe_segment(base, "base")
+    _safe_segment(name, "name")
+    max_side = max(16, min(max_side, 2000))
+    path = _under(IMAGES_DIR, IMAGES_DIR / base / "orig" / name)
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"missing image: {path.name}")
     with Image.open(path) as img:
@@ -259,7 +282,8 @@ def _dataset(location: str):
     """Load, transform and index a case study's features (cached)."""
     if location in _dataset_cache:
         return _dataset_cache[location]
-    path = DATA_DIR / f"{location}.json"
+    _safe_segment(location, "location")
+    path = _under(DATA_DIR, DATA_DIR / f"{location}.json")
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"unknown location: {location}")
     with path.open(encoding="utf-8") as f:
@@ -526,6 +550,7 @@ def session_done(session_id: int):
 
 @app.get("/export/{case_study}")
 def export(case_study: str, format: str = "csv"):
+    _safe_segment(case_study, "case_study")
     with _db() as conn:
         rows = conn.execute(
             "SELECT v.*, s.participant, s.case_study FROM validations v"
