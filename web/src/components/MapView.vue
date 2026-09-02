@@ -30,6 +30,21 @@ const props = defineProps({
     default: 'grid', // 'grid' | 'spiral'
     validator: (v) => ['grid', 'spiral'].includes(v),
   },
+  // optional secondary layer of already-validated posts (workshop mode)
+  done: {
+    type: Object,
+    default: null,
+  },
+  showDone: {
+    type: Boolean,
+    default: true,
+  },
+  // draw a bright ring under each point so the current post is always
+  // visible even when its image/thumbnail is missing (workshop mode)
+  highlightCurrent: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['point-click', 'cluster-list'])
@@ -130,6 +145,22 @@ function setupPoints(m, data) {
       origClear(...args)
       setBackgroundDim(m, false)
     }
+  }
+
+  if (props.highlightCurrent) {
+    m.addLayer({
+      id: 'current-highlight',
+      type: 'circle',
+      source: SOURCE_ID,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-radius': 26,
+        'circle-color': '#f59e0b',
+        'circle-opacity': 0.35,
+        'circle-stroke-color': '#d97706',
+        'circle-stroke-width': 3,
+      },
+    })
   }
 
   m.addLayer({
@@ -252,18 +283,64 @@ function registerImageHandler(m, getBaseUrl) {
 async function applyPoints(data) {
   const m = map.value
   if (!m || !data) return
-  if (!m.isStyleLoaded()) {
-    m.once('load', () => applyPoints(data))
-    return
-  }
   registerImageHandler(m, () => {
     const base = props.points?.base_media_path
     return base ? `images/${base}/thumb` : null
   })
   const src = m.getSource(SOURCE_ID)
-  if (src) src.setData(data)
-  else setupPoints(m, data)
+  if (src) {
+    // updating an existing source is always safe, even mid-render
+    src.setData(data)
+    return
+  }
+  if (!m.isStyleLoaded()) {
+    // only initial layer creation must wait; 'idle' fires repeatedly,
+    // unlike 'load' which fires exactly once per map lifetime
+    m.once('idle', () => applyPoints(data))
+    return
+  }
+  setupPoints(m, data)
 }
+
+const DONE_SOURCE = 'done-points'
+const DONE_LAYER = 'done-points-layer'
+
+function applyDone(data) {
+  const m = map.value
+  if (!m || !data) return
+  const src = m.getSource(DONE_SOURCE)
+  if (src) {
+    src.setData(data)
+    return
+  }
+  if (!m.isStyleLoaded()) {
+    m.once('idle', () => applyDone(data))
+    return
+  }
+  m.addSource(DONE_SOURCE, { type: 'geojson', data })
+    m.addLayer({
+      id: DONE_LAYER,
+      type: 'circle',
+      source: DONE_SOURCE,
+      paint: {
+        'circle-radius': 6,
+        'circle-color': '#9ca3af',
+        'circle-opacity': 0.75,
+        'circle-stroke-color': '#ffffff',
+        'circle-stroke-width': 1.5,
+      },
+    })
+    syncDoneVisibility()
+}
+
+function syncDoneVisibility() {
+  const m = map.value
+  if (!m || !m.getLayer(DONE_LAYER)) return
+  m.setLayoutProperty(DONE_LAYER, 'visibility', props.showDone ? 'visible' : 'none')
+}
+
+watch(() => props.done, applyDone)
+watch(() => props.showDone, syncDoneVisibility)
 
 function fit(fc) {
   const m = map.value
@@ -288,6 +365,7 @@ onMounted(() => {
   map.value.easeTo = map.value.jumpTo.bind(map.value)
   map.value.on('load', () => {
     if (props.points) applyPoints(props.points)
+    if (props.done) applyDone(props.done)
   })
 })
 

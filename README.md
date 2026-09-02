@@ -25,7 +25,8 @@ data/images/<city>/      orig/ and thumb/ images
 ## Run
 
 The server serves both the API and the prebuilt frontend on
-`http://127.0.0.1:8955` by default.
+`http://0.0.0.0:8955` by default (reachable from the LAN; the startup
+banner prints the network URL).
 
 Port, bind address and URL prefix are read from `server/.env` — copy
 `server/.env.template` and edit, or set them as environment variables:

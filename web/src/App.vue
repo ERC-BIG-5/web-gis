@@ -3,7 +3,100 @@ import { computed, createApp, h, nextTick, onMounted, ref, watch } from 'vue'
 import maplibregl from 'maplibre-gl'
 import MapView from './components/MapView.vue'
 import CesEvaluator from './components/CesEvaluator.vue'
+import LoginScreen from './components/LoginScreen.vue'
+import ValidationPanel from './components/ValidationPanel.vue'
+import FacilitatorView from './components/FacilitatorView.vue'
 
+// ---- workshop mode state --------------------------------------------------
+const mode = ref('login') // 'login' | 'validate' | 'browse' | 'facilitator'
+const session = ref(null)
+const valMapRef = ref(null)
+const currentFC = ref(null) // FeatureCollection with only the current post
+const doneFC = ref({ type: 'FeatureCollection', features: [] })
+const showDone = ref(true)
+
+const SESSION_KEY = 'workshopSession'
+
+function onStart(ses) {
+  session.value = ses
+  sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ case_study: ses.case_study, participant: ses.participant }),
+  )
+  currentFC.value = null
+  doneFC.value = { type: 'FeatureCollection', features: [] }
+  mode.value = 'validate'
+  loadDoneLayer(ses.session_id)
+}
+
+async function loadDoneLayer(sessionId) {
+  try {
+    const res = await fetch(`session/${sessionId}/done`)
+    if (res.ok) doneFC.value = await res.json()
+  } catch {
+    /* non-fatal */
+  }
+}
+
+function onCurrent(payload) {
+  currentFC.value = {
+    type: 'FeatureCollection',
+    base_media_path: payload.base_media_path,
+    features: [payload.feature],
+  }
+  const coords = payload.feature?.geometry?.coordinates
+  const m = valMapRef.value?.map
+  if (m && coords) {
+    m.jumpTo({ center: coords, zoom: Math.max(m.getZoom(), 14) })
+  }
+}
+
+function onValidated({ feature, feature_id, status }) {
+  doneFC.value = {
+    type: 'FeatureCollection',
+    features: [
+      ...doneFC.value.features,
+      {
+        type: 'Feature',
+        geometry: feature.geometry,
+        properties: { id: feature_id, status },
+      },
+    ],
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY)
+  session.value = null
+  currentFC.value = null
+  mode.value = 'login'
+}
+
+function enterBrowse() {
+  mode.value = 'browse'
+  if (!locations.value.length) initBrowse()
+}
+
+async function tryResume() {
+  const raw = sessionStorage.getItem(SESSION_KEY)
+  if (!raw) return false
+  try {
+    const { case_study, participant } = JSON.parse(raw)
+    const res = await fetch('session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ case_study, participant }),
+    })
+    if (!res.ok) throw new Error()
+    onStart(await res.json())
+    return true
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY)
+    return false
+  }
+}
+
+// ---- browse mode (original app) -------------------------------------------
 const locations = ref([])
 const selected = ref('')
 const rawPoints = ref(null)
@@ -81,7 +174,7 @@ const filteredPoints = computed(() => {
   }
 })
 
-onMounted(async () => {
+async function initBrowse() {
   try {
     const res = await fetch('locations')
     locations.value = await res.json()
@@ -92,6 +185,29 @@ onMounted(async () => {
   } catch (e) {
     error.value = `failed to fetch locations: ${e.message}`
   }
+}
+
+function syncHash() {
+  if (window.location.hash === '#facilitator') {
+    mode.value = 'facilitator'
+  }
+}
+
+function exitFacilitator() {
+  if (window.location.hash === '#facilitator') {
+    history.replaceState(null, '', window.location.pathname)
+  }
+  mode.value = 'login'
+}
+
+onMounted(async () => {
+  window.addEventListener('hashchange', syncHash)
+  if (window.location.hash === '#facilitator') {
+    mode.value = 'facilitator'
+    return
+  }
+  const resumed = await tryResume()
+  if (!resumed) mode.value = 'login'
 })
 
 async function load() {
@@ -294,7 +410,44 @@ function fitPopup(map, popup) {
 </script>
 
 <template>
+  <LoginScreen v-if="mode === 'login'" @start="onStart" @browse="enterBrowse" />
+
+  <FacilitatorView v-else-if="mode === 'facilitator'" @back="exitFacilitator" />
+
+  <div v-else-if="mode === 'validate'" class="val-layout">
+    <div class="val-map">
+      <MapView
+        key="validate-map"
+        ref="valMapRef"
+        :points="currentFC"
+        :cluster="false"
+        :done="doneFC"
+        :show-done="showDone"
+        :highlight-current="true"
+      >
+        <label class="done-toggle">
+          <input v-model="showDone" type="checkbox" />
+          Show validated ({{ doneFC.features.length }})
+        </label>
+        <div class="who">
+          {{ session.participant }} · {{ session.case_study.replace(/_/g, ' ') }}
+          <button class="link" @click="logout">exit</button>
+        </div>
+      </MapView>
+    </div>
+    <div class="val-panel">
+      <ValidationPanel
+        :session="session"
+        @current="onCurrent"
+        @validated="onValidated"
+        @quit="logout"
+      />
+    </div>
+  </div>
+
   <MapView
+    v-else
+    key="browse-map"
     ref="mapRef"
     :points="filteredPoints"
     @point-click="onPointClick"
@@ -307,6 +460,7 @@ function fitPopup(map, popup) {
         <button :disabled="!selected || loading" @click="load">
           {{ loading ? 'Loading…' : 'Load' }}
         </button>
+        <button class="link" @click="mode = 'login'">workshop</button>
         <span v-if="error" class="error">{{ error }}</span>
       </div>
       <div v-if="classification" class="filters">
@@ -357,6 +511,48 @@ function fitPopup(map, popup) {
 </template>
 
 <style scoped>
+.val-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.val-map {
+  flex: 55;
+  min-width: 0;
+  position: relative;
+}
+.val-panel {
+  flex: 45;
+  min-width: 360px;
+  max-width: 620px;
+  border-left: 1px solid #e5e7eb;
+  position: relative;
+}
+.done-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.who {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #444;
+}
 .menu {
   position: absolute;
   top: 12px;
