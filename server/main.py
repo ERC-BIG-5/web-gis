@@ -15,11 +15,14 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "data" / "geo-datasets" / "filtered"
-IMAGES_DIR = ROOT / "data" / "images"
-WEB_DIST = ROOT / "web" / "dist"
-LOCATIONS_CONFIG_PATH = ROOT / "data" / "locations.json"
+from config import (
+    DB_PATH,
+    FILTERED_DIR,
+    IMAGES_DIR,
+    LOCATIONS_CONFIG_PATH,
+    WEB_DIST,
+    WORLD_GEOJSON,
+)
 
 # User-supplied path segments (location names, image base dirs, file names) must
 # be plain names: no separators, no leading dot, no "..". Paths built from them
@@ -148,7 +151,7 @@ app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 @app.get("/geo-dataset")
 def geo_dataset(location: str):
     _safe_segment(location, "location")
-    path = _under(DATA_DIR, DATA_DIR / f"{location}.json")
+    path = _under(FILTERED_DIR, FILTERED_DIR / f"{location}.json")
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"unknown location: {location}")
     with path.open(encoding="utf-8") as f:
@@ -166,7 +169,7 @@ def geo_dataset(location: str):
 
 @app.get("/locations")
 def locations():
-    return sorted(p.stem for p in DATA_DIR.glob("*.json"))
+    return sorted(p.stem for p in FILTERED_DIR.glob("*.json"))
 
 
 @app.get("/evaluate")
@@ -183,7 +186,7 @@ async def evaluate_post(payload: dict):
 
 @app.get("/world")
 def world():
-    path = ROOT / "data" / "world.geojson"
+    path = WORLD_GEOJSON
     with path.open(encoding="utf-8") as f:
         return json.load(f)
 
@@ -208,7 +211,6 @@ def scaled(base: str, name: str, max_side: int = 400):
 # Workshop validation mode
 # ---------------------------------------------------------------------------
 
-DB_PATH = ROOT / "data" / "validation.db"
 DEFAULT_TARGET = 100        # posts each participant should validate
 QUEUE_FACTOR = 1.5          # spare posts so skips can be backfilled
 # queue composition (must sum to 1.0). Pools shrink gracefully if a stratum
@@ -284,7 +286,7 @@ def _dataset(location: str):
     if location in _dataset_cache:
         return _dataset_cache[location]
     _safe_segment(location, "location")
-    path = _under(DATA_DIR, DATA_DIR / f"{location}.json")
+    path = _under(FILTERED_DIR, FILTERED_DIR / f"{location}.json")
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"unknown location: {location}")
     with path.open(encoding="utf-8") as f:
