@@ -3,6 +3,7 @@ import hashlib
 import io
 import json
 import math
+import os
 import random
 import re
 import sqlite3
@@ -27,7 +28,8 @@ from webgis.config import (
 
 # User-supplied path segments (location names, image base dirs, file names) must
 # be plain names: no separators, no leading dot, no "..". Paths built from them
-# are additionally checked to resolve inside their root directory.
+# are additionally checked to lie inside their root directory (lexically, so
+# that image folders may contain symlinks to files stored elsewhere).
 _SAFE_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
@@ -38,10 +40,10 @@ def _safe_segment(value: str, what: str) -> str:
 
 
 def _under(root: Path, path: Path) -> Path:
-    resolved = path.resolve()
-    if not resolved.is_relative_to(root.resolve()):
+    normalized = Path(os.path.normpath(path))
+    if not normalized.is_relative_to(Path(os.path.normpath(root))):
         raise HTTPException(status_code=400, detail="invalid path")
-    return resolved
+    return normalized
 
 
 class Settings(BaseSettings):
