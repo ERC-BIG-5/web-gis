@@ -2,8 +2,17 @@
 
 from pathlib import Path
 
-SERVER_DIR = Path(__file__).resolve().parents[2]   # server/ (holds pyproject.toml, .env)
-ROOT = SERVER_DIR.parent
+
+def find_project_dir(start: Path = Path(__file__)) -> Path:
+    """Nearest ancestor of `start` that holds a pyproject.toml."""
+    for parent in start.resolve().parents:
+        if (parent / "pyproject.toml").is_file():
+            return parent
+    raise FileNotFoundError(f"no pyproject.toml above {start}")
+
+
+SERVER_DIR = find_project_dir()   # server/ (pyproject.toml, .env)
+ROOT = SERVER_DIR.parent          # repo root
 DATA_ROOT = ROOT / "data"
 
 DATASETS_DIR = DATA_ROOT / "geo-datasets"        # raw GeoJSON per location
