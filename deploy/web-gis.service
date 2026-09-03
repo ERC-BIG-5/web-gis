@@ -1,10 +1,11 @@
 # systemd unit for web-gis, hardened.
 #
-# Install (paths assume the repo at /home/ubuntu/projects/web-gis):
-#   cp deploy/web-gis.service /home/ubuntu/projects/web-gis/web-gis.service
-#   sudo systemctl link /home/ubuntu/projects/web-gis/web-gis.service
+# Install (paths assume the repo at /home/ubuntu/projects/web-gis); the unit is
+# used straight from the repo, no copy:
+#   sudo systemctl link /home/ubuntu/projects/web-gis/deploy/web-gis.service
 #   sudo systemctl enable --now web-gis
-# After editing: sudo systemctl daemon-reload && sudo systemctl restart web-gis
+# After a git pull that touches this file:
+#   sudo systemctl daemon-reload && sudo systemctl restart web-gis
 # PORT / HOST / BASE_PATH come from server/.env.
 #
 # Sandbox summary: the process sees a read-only system, an empty home except

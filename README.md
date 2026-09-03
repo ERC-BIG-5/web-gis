@@ -66,17 +66,29 @@ tweaking against the running server).
 
 ## Deploy (systemd + nginx)
 
+The files in `deploy/` are used directly from the checkout on the server;
+nothing is copied to the repo root.
+
 `deploy/web-gis.service` is a hardened systemd unit (read-only system,
-home hidden except the project, writes only to `data/`). Copy it to the
-repo root on the server, `systemctl link` it, and put `PORT=...` and
-`HOST=127.0.0.1` in `server/.env`. Serve it behind a reverse proxy; the
-frontend uses relative URLs, so any path prefix works.
+home hidden except the project, writes only to `data/`). `systemctl link`
+it from its place in `deploy/`, and put `PORT=...` and `HOST=127.0.0.1`
+in `server/.env`. Serve it behind a reverse proxy; the frontend uses
+relative URLs, so any path prefix works.
 
 `deploy/nginx_web-gis.conf` + `nginx_web-gis-common.conf` serve the app
 under `/web-gis/` with security headers and a per-IP rate limit on the
-session endpoints; copy both to the repo root on the server and `include`
-the first from your `server {}` block. `deploy/nginx_web-gis-ratelimit.conf`
-goes to `/etc/nginx/conf.d/`.
+session endpoints; `include` the first from your `server {}` block.
+`deploy/nginx_web-gis-ratelimit.conf` is the one exception: it has to sit
+at `http {}` level, so copy it to `/etc/nginx/conf.d/`.
+
+Updating on the server:
+
+```bash
+git pull
+cd server && uv sync && cd ..
+sudo systemctl daemon-reload && sudo systemctl restart web-gis   # if deploy/web-gis.service changed
+sudo nginx -t && sudo systemctl reload nginx                     # if deploy/nginx_* changed
+```
 
 ## Project layout
 
