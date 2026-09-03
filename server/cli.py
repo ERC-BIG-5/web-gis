@@ -5,6 +5,7 @@
 """
 
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from rich.table import Table
 
 # `typer cli.py run ...` imports this file without putting its folder on the path.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config import DATASETS_DIR, FILTERED_DIR, IMAGES_DIR, LOCATIONS_CONFIG_PATH  # noqa: E402
+from config import DATASETS_DIR, DB_PATH, FILTERED_DIR, IMAGES_DIR, LOCATIONS_CONFIG_PATH  # noqa: E402
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 console = Console()
@@ -112,6 +113,48 @@ def list_locations():
             orig_cell,
             thumb_cell,
         )
+    console.print(table)
+
+
+@app.command()
+def annotations():
+    """Count workshop annotations (rows in data/validation.db) per location.
+
+    Columns:
+
+    - location: the case_study participants logged in with.
+
+    - participants: sessions, i.e. distinct participant names for that location.
+
+    - annotations: all validation rows, including skipped ones.
+
+    - skipped: rows where the participant gave a skip reason instead of a judgment.
+
+    - posts: distinct features that received at least one annotation.
+    """
+    if not DB_PATH.is_file():
+        console.print(f"[red]no database at {DB_PATH}[/red]")
+        raise typer.Exit(1)
+    conn = sqlite3.connect(DB_PATH)
+    rows = conn.execute(
+        """
+        SELECT s.case_study,
+               COUNT(DISTINCT s.id),
+               COUNT(v.id),
+               SUM(v.skipped_reason IS NOT NULL AND v.skipped_reason != ''),
+               COUNT(DISTINCT v.feature_id)
+        FROM sessions s LEFT JOIN validations v ON v.session_id = s.id
+        GROUP BY s.case_study ORDER BY s.case_study
+        """
+    ).fetchall()
+    conn.close()
+
+    table = Table(title="Annotations")
+    table.add_column("location", style="bold")
+    for col in ("participants", "annotations", "skipped", "posts"):
+        table.add_column(col, justify="right")
+    for case_study, sessions, total, skipped, posts in rows:
+        table.add_row(case_study, str(sessions), str(total), str(skipped or 0), str(posts))
     console.print(table)
 
 
