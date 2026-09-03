@@ -62,7 +62,26 @@ def _image_status(features: list[dict] | None, base: str) -> tuple[str, str]:
 
 @app.command("list-locations")
 def list_locations():
-    """Show every location known from datasets, config or image folders."""
+    """Show every location known from datasets, config or image folders.
+
+    Columns:
+
+    - location: name shared by dataset file, config block and image folder.
+
+    - raw: feature count in data/geo-datasets/<location>.json.
+
+    - filtered (served): feature count in data/geo-datasets/filtered/<location>.json, the file the server actually serves.
+
+    - config: whether data/locations.json has a block for this location.
+
+    - model: the "model" key of that block, used to flatten models.<name> in the dataset.
+
+    - orig images: files in data/images/<base_media_path>/orig, plus how many features reference an image that is not there.
+
+    - thumbs: same for data/images/<base_media_path>/thumb (map markers).
+
+    "-" means the file or folder does not exist.
+    """
     config = _load_config()
     names = set(config)
     for d in (DATASETS_DIR, FILTERED_DIR):
