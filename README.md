@@ -66,10 +66,11 @@ tweaking against the running server).
 
 ## CLI
 
-Maintenance commands live in `server/src/webgis/cli.py` (needs the `cli`
-extra: `uv sync --extra cli` once). From `server/`:
+Maintenance commands live in `server/src/webgis/cli.py`. They need the
+optional `cli` dependency group, installed once. From `server/`:
 
 ```bash
+uv sync --extra cli            # once; installs typer into server/.venv
 uv run webgis list-locations   # datasets, config, images per location
 uv run webgis annotations      # validation counts per location
 uv run webgis --help
