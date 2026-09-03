@@ -64,6 +64,17 @@ npm install
 For hot-reload dev: `npm run dev` in `web/` (proxy/CORS may need
 tweaking against the running server).
 
+## CLI
+
+Maintenance commands live in `server/src/webgis/cli.py` (needs the `cli`
+extra: `uv sync --extra cli` once). From `server/`:
+
+```bash
+uv run webgis list-locations   # datasets, config, images per location
+uv run webgis annotations      # validation counts per location
+uv run webgis --help
+```
+
 ## Deploy (systemd + nginx)
 
 The files in `deploy/` are used directly from the checkout on the server;
