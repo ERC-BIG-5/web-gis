@@ -6,7 +6,7 @@ target 100 posts in 1.5 h).
 
 ## What was added
 
-**Backend (`server/main.py`)** — all original endpoints untouched, plus:
+**Backend (`server/src/webgis/main.py`)** — all original endpoints untouched, plus:
 
 - `POST /session` — creates or resumes a session for a case study + participant.
   On first login it builds a seeded random queue of 150 posts (100 target × 1.5
@@ -47,7 +47,7 @@ target 100 posts in 1.5 h).
 ## One-time setup (your machine)
 
 1. Replace your project folder with the contents of this zip (or copy over
-   `server/main.py` and the whole `web/src/` folder — those are the only
+   `server/src/webgis/main.py` and the whole `web/src/` folder — those are the only
    changed/new code files).
 2. Rebuild the frontend once (the shipped `web/dist` is still the OLD UI):
    ```

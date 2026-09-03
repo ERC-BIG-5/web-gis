@@ -11,4 +11,4 @@ if [ ! -f "$ROOT/web/dist/index.html" ] || [ -d "$ROOT/web/node_modules" ]; then
 fi
 
 cd "$ROOT/server"
-exec uv run python main.py
+exec uv run webgis-server

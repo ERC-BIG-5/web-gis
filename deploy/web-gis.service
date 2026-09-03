@@ -22,7 +22,7 @@ Group=ubuntu
 WorkingDirectory=/home/ubuntu/projects/web-gis/server
 # Run the venv's interpreter directly: no uv at runtime, so no uv cache needed.
 # Keep the venv in sync with:  cd server && uv sync
-ExecStart=/home/ubuntu/projects/web-gis/server/.venv/bin/python main.py
+ExecStart=/home/ubuntu/projects/web-gis/server/.venv/bin/webgis-server
 Restart=on-failure
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1

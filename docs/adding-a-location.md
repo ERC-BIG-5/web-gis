@@ -39,7 +39,8 @@ Restart the server; the config is read once at startup.
 ```bash
 cd server
 uv sync --extra cli            # once
-typer cli.py run list-locations
+uv run webgis list-locations
+uv run webgis annotations      # validation counts per location
 ```
 
 Shows, per location, feature counts, whether a config block exists, and

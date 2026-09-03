@@ -88,7 +88,7 @@ data/
     thumb/             pre-generated thumbnails (optional)
   locations.json       per-city UI config (filters, popup, evaluator)
   world.geojson        background world layer
-server/main.py         FastAPI app
+server/src/webgis/     FastAPI app (main.py), config paths, maintenance CLI (cli.py)
 web/                   Vue 3 + Vite frontend
 scripts/start.sh|.bat  launcher
 scripts/build.sh       build web/dist (system npm, or Node via uvx)

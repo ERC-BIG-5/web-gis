@@ -15,11 +15,12 @@ from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from config import (
+from webgis.config import (
     DB_PATH,
     FILTERED_DIR,
     IMAGES_DIR,
     LOCATIONS_CONFIG_PATH,
+    SERVER_DIR,
     WEB_DIST,
     WORLD_GEOJSON,
 )
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     """Runtime config from server/.env (see server/.env.template) or the
     environment. Env vars win over the file."""
 
-    model_config = SettingsConfigDict(env_file=Path(__file__).resolve().parent / ".env")
+    model_config = SettingsConfigDict(env_file=SERVER_DIR / ".env")
 
     host: str = "0.0.0.0"
     port: int = 8955
@@ -680,7 +681,7 @@ if WEB_DIST.is_dir():
     app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")
 
 
-if __name__ == "__main__":
+def run():
     import socket
     import uvicorn
 
@@ -697,3 +698,7 @@ if __name__ == "__main__":
         print(f"  Network: http://{lan_ip}:{port}  <-use this")
     print()
     uvicorn.run(app, host=settings.host, port=port)
+
+
+if __name__ == "__main__":
+    run()

@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+SERVER_DIR = Path(__file__).resolve().parents[2]   # server/ (holds pyproject.toml, .env)
+ROOT = SERVER_DIR.parent
 DATA_ROOT = ROOT / "data"
 
 DATASETS_DIR = DATA_ROOT / "geo-datasets"        # raw GeoJSON per location

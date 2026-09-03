@@ -1,21 +1,18 @@
 """Maintenance CLI for the web-gis data folder.
 
     uv sync --extra cli          # once
-    typer cli.py run list-locations
+    uv run webgis list-locations
 """
 
 import json
 import sqlite3
-import sys
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-# `typer cli.py run ...` imports this file without putting its folder on the path.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config import DATASETS_DIR, DB_PATH, FILTERED_DIR, IMAGES_DIR, LOCATIONS_CONFIG_PATH  # noqa: E402
+from webgis.config import DATASETS_DIR, DB_PATH, FILTERED_DIR, IMAGES_DIR, LOCATIONS_CONFIG_PATH
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 console = Console()

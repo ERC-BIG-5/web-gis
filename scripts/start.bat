@@ -20,5 +20,5 @@ if defined NEED_BUILD (
 )
 
 cd /d "%ROOT%\server"
-uv run python main.py
+uv run webgis-server
 endlocal
