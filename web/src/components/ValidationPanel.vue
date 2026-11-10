@@ -15,6 +15,7 @@ const error = ref('')
 const judgments = ref({}) // ces key -> true | false
 const comment = ref('')
 const locationWrong = ref(false)
+const indoorContent = ref(false)
 const skipOpen = ref(false)
 const lightbox = ref(false)
 const defsOpen = ref(false)
@@ -78,6 +79,7 @@ function resetForm() {
   added.value = []
   comment.value = ''
   locationWrong.value = false
+  indoorContent.value = false
   skipOpen.value = false
   lightbox.value = false
   imgFailed.value = false
@@ -155,6 +157,7 @@ function save() {
     ces_judgments: judged,
     comment: comment.value.trim() || null,
     location_incorrect: locationWrong.value,
+    indoor: indoorContent.value,
   })
 }
 
@@ -301,10 +304,14 @@ const pct = computed(() => {
         </div>
       </div>
 
-      <!-- location flag -->
+      <!-- flags -->
       <label class="loc-flag" :class="{ on: locationWrong }">
         <input v-model="locationWrong" type="checkbox" />
         📍 The location of this post on the map seems incorrect
+      </label>
+      <label class="loc-flag" :class="{ on: indoorContent }">
+        <input v-model="indoorContent" type="checkbox" />
+        🏠 The content of the image is indoor
       </label>
 
       <!-- comment -->
