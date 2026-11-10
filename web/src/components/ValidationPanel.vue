@@ -19,6 +19,7 @@ const indoorContent = ref(false)
 const skipOpen = ref(false)
 const lightbox = ref(false)
 const imgFailed = ref(false)
+const imgLoaded = ref(false)
 
 let postStart = Date.now()
 
@@ -82,6 +83,7 @@ function resetForm() {
   skipOpen.value = false
   lightbox.value = false
   imgFailed.value = false
+  imgLoaded.value = false
   postStart = Date.now()
 }
 
@@ -277,16 +279,26 @@ const pct = computed(() => {
     <!-- current post -->
     <template v-else-if="current">
       <div class="post">
-        <div class="img-box" @click="!imgFailed && (lightbox = true)">
+        <div
+          class="img-box"
+          :class="{ loading: !imgLoaded && !imgFailed }"
+          @click="imgLoaded && (lightbox = true)"
+        >
           <img
             v-if="!imgFailed"
             :key="current.feature_id"
             :src="panelImg"
+            :class="{ shown: imgLoaded }"
             alt=""
+            @load="imgLoaded = true"
             @error="imgFailed = true"
           />
-          <div v-else class="img-fail">image failed to load<br /><span>use "Skip"</span></div>
-          <span v-if="!imgFailed" class="zoom-hint">click to enlarge</span>
+          <div v-if="!imgLoaded && !imgFailed" class="img-loading" aria-live="polite">
+            <span class="spinner"></span>
+            Loading image…
+          </div>
+          <div v-if="imgFailed" class="img-fail">image failed to load<br /><span>use "Skip"</span></div>
+          <span v-if="imgLoaded" class="zoom-hint">click to enlarge</span>
         </div>
         <p v-if="current.feature.properties.text" class="post-text">
           {{ current.feature.properties.text }}
@@ -454,6 +466,60 @@ const pct = computed(() => {
   max-height: 44vh;
   object-fit: contain;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.img-box img.shown {
+  opacity: 1;
+}
+.img-box.loading {
+  min-height: 260px;
+  cursor: progress;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.img-box.loading img {
+  position: absolute;
+  inset: 0;
+}
+.img-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 13px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #d1d5db;
+  border-top-color: #1b6cd9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-box.loading,
+  .spinner {
+    animation-duration: 3s;
+  }
 }
 .img-fail {
   padding: 40px 10px;
