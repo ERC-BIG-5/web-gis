@@ -148,6 +148,7 @@ async function goBack() {
     added.value = add
     comment.value = prev.comment ?? ''
     locationWrong.value = !!prev.location_incorrect
+    indoorContent.value = !!prev.indoor
     emit('unvalidated', data.feature_id)
     emit('current', data)
   } catch (e) {
