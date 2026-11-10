@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-line-per-dataset summary: datasets, posts, reachable images.
 
-    python3 scripts/data_summary.py
+    cd server && uv sync --extra cli && uv run ../scripts/data_summary.py
 
 - datasets: files in data/geo-datasets/filtered/ (what the server serves).
 - posts: features in each file.
@@ -13,13 +13,15 @@
 import json
 from pathlib import Path
 
+from tqdm import tqdm
+
 DATA = Path(__file__).resolve().parent.parent / "data"
 FILTERED = DATA / "geo-datasets" / "filtered"
 IMAGES = DATA / "images"
 
 
-def reachable(folder: Path, names: list[str]) -> int:
-    return sum((folder / n).is_file() for n in names)
+def reachable(folder: Path, names: list[str], desc: str) -> int:
+    return sum((folder / n).is_file() for n in tqdm(names, desc=desc, unit="img", leave=False))
 
 
 def main() -> None:
@@ -27,14 +29,14 @@ def main() -> None:
     config = json.loads(cfg_path.read_text("utf-8")).get("locations", {}) if cfg_path.is_file() else {}
 
     rows = []
-    for path in sorted(FILTERED.glob("*.json")):
+    for path in tqdm(sorted(FILTERED.glob("*.json")), desc="datasets", unit="ds"):
         feats = json.loads(path.read_text("utf-8")).get("features", [])
         names = [n for f in feats if (n := f.get("properties", {}).get("image_name"))]
         base = config.get(path.stem, {}).get("base_media_path", path.stem)
         rows.append((
             path.stem, len(feats), len(names),
-            reachable(IMAGES / base / "orig", names),
-            reachable(IMAGES / base / "thumb", names),
+            reachable(IMAGES / base / "orig", names, f"{path.stem} orig"),
+            reachable(IMAGES / base / "thumb", names, f"{path.stem} thumb"),
         ))
 
     head = ("dataset", "posts", "w/ image", "orig ok", "thumb ok")
