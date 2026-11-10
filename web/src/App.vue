@@ -531,14 +531,13 @@ function fitPopup(map, popup) {
   height: 100%;
 }
 .val-map {
-  flex: 55;
+  flex: 1 1 50%;
   min-width: 0;
   position: relative;
 }
 .val-panel {
-  flex: 45;
-  min-width: 360px;
-  max-width: 620px;
+  flex: 1 1 50%;
+  min-width: 420px;
   border-left: 1px solid #e5e7eb;
   position: relative;
 }

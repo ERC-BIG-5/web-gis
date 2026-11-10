@@ -18,7 +18,6 @@ const locationWrong = ref(false)
 const indoorContent = ref(false)
 const skipOpen = ref(false)
 const lightbox = ref(false)
-const defsOpen = ref(false)
 const imgFailed = ref(false)
 
 let postStart = Date.now()
@@ -177,10 +176,6 @@ function setJudgment(key, val) {
 function onKey(e) {
   const tag = e.target?.tagName
   if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return
-  if (defsOpen.value) {
-    if (e.key === 'Escape') defsOpen.value = false
-    return
-  }
   if (lightbox.value && e.key === 'Escape') {
     lightbox.value = false
     return
@@ -252,53 +247,57 @@ const pct = computed(() => {
         </p>
       </div>
 
-      <!-- CES validation -->
+      <!-- CES validation (definitions shown inline) -->
       <div class="step">
-        <div class="step-head">
-          <div class="step-label">Do you agree with the model's CES categories?</div>
-          <button type="button" class="defs-link" @click="defsOpen = true">
-            CES definitions
-          </button>
-        </div>
+        <div class="step-label">Do you agree with the model's CES categories?</div>
         <div v-if="!cesKeys.length" class="muted">No CES assigned by the model — nothing to judge here.</div>
         <div v-else class="chips">
           <div v-for="k in cesKeys" :key="k" class="chip" :class="{
             agreed: judgments[k] === true,
             disagreed: judgments[k] === false,
           }">
-            <span class="chip-short">{{ cesMeta[k]?.short ?? k }}</span>
-            <span class="chip-name">{{ cesMeta[k]?.name ?? k }}</span>
-            <button
-              type="button"
-              class="chip-btn no"
-              :class="{ on: judgments[k] === false }"
-              title="disagree"
-              @click="setJudgment(k, false)"
-            >✗</button>
-            <button
-              type="button"
-              class="chip-btn yes"
-              :class="{ on: judgments[k] === true }"
-              title="agree"
-              @click="setJudgment(k, true)"
-            >✓</button>
+            <div class="chip-head">
+              <span class="chip-short">{{ cesMeta[k]?.short ?? k }}</span>
+              <span class="chip-name">{{ cesMeta[k]?.name ?? k }}</span>
+              <button
+                type="button"
+                class="chip-btn no"
+                :class="{ on: judgments[k] === false }"
+                title="disagree"
+                @click="setJudgment(k, false)"
+              >✗</button>
+              <button
+                type="button"
+                class="chip-btn yes"
+                :class="{ on: judgments[k] === true }"
+                title="agree"
+                @click="setJudgment(k, true)"
+              >✓</button>
+            </div>
+            <p v-if="cesMeta[k]?.definition" class="def">{{ cesMeta[k].definition }}</p>
+            <p v-if="cesMeta[k]?.examples" class="ex"><em>Examples:</em> {{ cesMeta[k].examples }}</p>
           </div>
         </div>
         <div v-if="otherCesKeys.length" class="add-section">
           <div class="add-label">Add categories the model missed (optional)</div>
-          <div class="add-pills">
+          <div class="add-list">
             <button
               v-for="k in otherCesKeys"
               :key="k"
               type="button"
-              class="add-pill"
+              class="add-row"
               :class="{ on: added.includes(k) }"
-              :title="cesMeta[k]?.name ?? k"
               @click="toggleAdded(k)"
             >
               <span class="add-plus">{{ added.includes(k) ? '✓' : '+' }}</span>
-              {{ cesMeta[k]?.short ?? k }}
-              <span class="add-name">{{ cesMeta[k]?.name ?? '' }}</span>
+              <span class="add-body">
+                <span class="add-title">
+                  <span class="add-short">{{ cesMeta[k]?.short ?? k }}</span>
+                  <span class="add-name">{{ cesMeta[k]?.name ?? '' }}</span>
+                </span>
+                <span v-if="cesMeta[k]?.definition" class="def">{{ cesMeta[k].definition }}</span>
+                <span v-if="cesMeta[k]?.examples" class="ex"><em>Examples:</em> {{ cesMeta[k].examples }}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -345,31 +344,6 @@ const pct = computed(() => {
       <img :src="fullImg" alt="" />
     </div>
 
-    <!-- CES definitions -->
-    <div v-if="defsOpen" class="defs-overlay" @click.self="defsOpen = false">
-      <div class="defs-card">
-        <div class="defs-header">
-          <h2>CES categories — definitions & examples</h2>
-          <button class="defs-close" @click="defsOpen = false">✕ close</button>
-        </div>
-        <div class="defs-list">
-          <div
-            v-for="v in session.ces_values"
-            :key="v.key"
-            class="defs-item"
-            :class="{ assigned: cesKeys.includes(v.key) }"
-          >
-            <div class="defs-title">
-              <span class="defs-short">{{ v.short }}</span>
-              <strong>{{ v.name }}</strong>
-              <span v-if="cesKeys.includes(v.key)" class="defs-tag">assigned to this post</span>
-            </div>
-            <p class="defs-def">{{ v.definition || 'No definition provided.' }}</p>
-            <p v-if="v.examples" class="defs-ex"><em>Examples:</em> {{ v.examples }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -457,100 +431,16 @@ const pct = computed(() => {
   color: #333;
   white-space: pre-wrap;
 }
-.step-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
-.defs-link {
-  background: none;
-  border: 0;
-  color: #1b6cd9;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-  white-space: nowrap;
-}
-.defs-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 120;
-  padding: 24px;
-  box-sizing: border-box;
-}
-.defs-card {
-  background: #fff;
-  border-radius: 12px;
-  width: min(680px, 100%);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-.defs-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
-}
-.defs-header h2 {
-  margin: 0;
-  font-size: 16px;
-}
-.defs-close {
-  background: none;
-  border: 0;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-}
-.defs-list {
-  overflow-y: auto;
-  padding: 12px 20px 20px;
-}
-.defs-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-}
-.defs-item.assigned {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-.defs-title {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-}
-.defs-short {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #1b6cd9;
-  width: 34px;
-}
-.defs-tag {
-  font-size: 11px;
-  color: #1b6cd9;
-  background: #dbeafe;
-  border-radius: 999px;
-  padding: 1px 8px;
-}
-.defs-def {
-  margin: 4px 0 2px 42px;
+.def {
+  display: block;
+  margin: 4px 0 0;
   font-size: 13px;
   color: #333;
   line-height: 1.45;
 }
-.defs-ex {
-  margin: 0 0 2px 42px;
+.ex {
+  display: block;
+  margin: 2px 0 0;
   font-size: 12px;
   color: #777;
   line-height: 1.4;
@@ -571,59 +461,81 @@ const pct = computed(() => {
   color: #888;
   margin-bottom: 5px;
 }
-.add-pills {
+.add-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 5px;
 }
-.add-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  padding: 4px 9px;
+.add-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px 12px;
   border: 1.2px dashed #ccc;
-  border-radius: 999px;
+  border-radius: 10px;
   background: #fff;
   color: #555;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.03em;
 }
-.add-pill .add-name {
-  font-weight: 400;
-  color: #999;
-  letter-spacing: 0;
-}
-.add-pill:hover {
+.add-row:hover {
   border-color: #93c5fd;
 }
-.add-pill.on {
+.add-row.on {
   border-style: solid;
   border-color: #1b6cd9;
   background: #dbeafe;
   color: #1b3e73;
 }
-.add-pill.on .add-name {
-  color: #1b6cd9;
+.add-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.add-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.add-short {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  width: 34px;
+  flex-shrink: 0;
+}
+.add-name {
+  font-weight: 600;
 }
 .add-plus {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  width: 14px;
+  flex-shrink: 0;
 }
 .chips {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .chip {
+  border: 1.5px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 8px 10px 10px 12px;
+  font-size: 13px;
+}
+.chip-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1.5px solid #dbeafe;
-  background: #eff6ff;
-  border-radius: 999px;
-  padding: 6px 8px 6px 12px;
-  font-size: 13px;
+}
+.chip .def,
+.chip .ex {
+  margin-left: 42px;
 }
 .chip.agreed {
   border-color: #6ee7b7;
