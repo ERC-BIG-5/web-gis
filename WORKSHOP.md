@@ -34,7 +34,7 @@ target 100 posts in 1.5 h).
 - `ValidationPanel.vue` — the guided flow: progress bar ("N / 100" + timer),
   large image (click to open a fullscreen lightbox), post text, the two-step
   form (nature elements 1/2/3/4 on the keyboard → CES agree/disagree chips),
-  optional comment, "Can't judge" with reason, and **Enter = Save & Next**.
+  optional comment, "Skip" with reason, and **Enter = Save & Next**.
 - `FacilitatorView.vue` — open `http://<server>:8955/#facilitator` for live
   progress of all 8 participants + CSV/JSON download buttons (auto-refreshes
   every 15 s). Not linked from the participant UI.

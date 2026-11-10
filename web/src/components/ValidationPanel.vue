@@ -239,7 +239,7 @@ const pct = computed(() => {
             alt=""
             @error="imgFailed = true"
           />
-          <div v-else class="img-fail">image failed to load<br /><span>use "Can't judge"</span></div>
+          <div v-else class="img-fail">image failed to load<br /><span>use "Skip"</span></div>
           <span v-if="!imgFailed" class="zoom-hint">click to enlarge</span>
         </div>
         <p v-if="current.feature.properties.text" class="post-text">
@@ -324,7 +324,7 @@ const pct = computed(() => {
       <!-- actions -->
       <div class="actions">
         <div class="skip-wrap">
-          <button class="secondary" @click="skipOpen = !skipOpen">Can't judge</button>
+          <button class="secondary" @click="skipOpen = !skipOpen">Skip</button>
           <div v-if="skipOpen" class="skip-menu">
             <button @click="cantJudge('broken image')">Broken image</button>
             <button @click="cantJudge('language')">Language</button>
