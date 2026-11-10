@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const props = defineProps({
   session: { type: Object, required: true }, // {session_id, target, ces_values, ...}
@@ -20,6 +20,7 @@ const skipOpen = ref(false)
 const lightbox = ref(false)
 const imgFailed = ref(false)
 const imgLoaded = ref(false)
+const panelEl = ref(null) // the scrollable sidebar
 
 let postStart = Date.now()
 
@@ -85,6 +86,8 @@ function resetForm() {
   imgFailed.value = false
   imgLoaded.value = false
   postStart = Date.now()
+  // a new post is shown: start reading it from the top
+  nextTick(() => panelEl.value?.scrollTo({ top: 0 }))
 }
 
 async function loadNext() {
@@ -247,7 +250,7 @@ const pct = computed(() => {
 </script>
 
 <template>
-  <div class="vpanel">
+  <div ref="panelEl" class="vpanel">
     <!-- progress -->
     <div class="progress">
       <div class="progress-row">
