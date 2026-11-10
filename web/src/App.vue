@@ -75,6 +75,13 @@ function onValidated({ feature, feature_id, status }) {
   }
 }
 
+function onUnvalidated(featureId) {
+  doneFC.value = {
+    type: 'FeatureCollection',
+    features: doneFC.value.features.filter((f) => f.properties?.id !== featureId),
+  }
+}
+
 function logout() {
   sessionStorage.removeItem(SESSION_KEY)
   session.value = null
@@ -453,6 +460,7 @@ function fitPopup(map, popup) {
         :session="session"
         @current="onCurrent"
         @validated="onValidated"
+        @unvalidated="onUnvalidated"
         @quit="logout"
       />
     </div>
@@ -531,14 +539,13 @@ function fitPopup(map, popup) {
   height: 100%;
 }
 .val-map {
-  flex: 55;
+  flex: 1 1 50%;
   min-width: 0;
   position: relative;
 }
 .val-panel {
-  flex: 45;
-  min-width: 360px;
-  max-width: 620px;
+  flex: 1 1 50%;
+  min-width: 420px;
   border-left: 1px solid #e5e7eb;
   position: relative;
 }

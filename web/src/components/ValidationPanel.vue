@@ -1,10 +1,10 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const props = defineProps({
   session: { type: Object, required: true }, // {session_id, target, ces_values, ...}
 })
-const emit = defineEmits(['current', 'validated', 'quit'])
+const emit = defineEmits(['current', 'validated', 'unvalidated', 'quit'])
 
 const current = ref(null) // /next payload
 const progress = ref(null)
@@ -18,8 +18,9 @@ const locationWrong = ref(false)
 const indoorContent = ref(false)
 const skipOpen = ref(false)
 const lightbox = ref(false)
-const defsOpen = ref(false)
 const imgFailed = ref(false)
+const imgLoaded = ref(false)
+const panelEl = ref(null) // the scrollable sidebar
 
 let postStart = Date.now()
 
@@ -83,7 +84,10 @@ function resetForm() {
   skipOpen.value = false
   lightbox.value = false
   imgFailed.value = false
+  imgLoaded.value = false
   postStart = Date.now()
+  // a new post is shown: start reading it from the top
+  nextTick(() => panelEl.value?.scrollTo({ top: 0 }))
 }
 
 async function loadNext() {
@@ -105,6 +109,50 @@ async function loadNext() {
     emit('current', data)
   } catch (e) {
     error.value = `failed to load next post: ${e.message}`
+  } finally {
+    loadingNext.value = false
+  }
+}
+
+// posts already decided in this session (validated, not relevant or skipped)
+const canGoBack = computed(
+  () =>
+    !loadingNext.value &&
+    (progress.value?.validated ?? 0) + (progress.value?.skipped ?? 0) > 0,
+)
+
+async function goBack() {
+  if (!canGoBack.value) return
+  loadingNext.value = true
+  error.value = ''
+  try {
+    const res = await fetch(`session/${props.session.session_id}/back`, { method: 'POST' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw new Error(body?.detail ?? `HTTP ${res.status}`)
+    }
+    const data = await res.json()
+    progress.value = data.progress
+    doneAll.value = false
+    current.value = data
+    resetForm()
+    // pre-fill the form with the answers given last time
+    const prev = data.previous ?? {}
+    const j = {}
+    const add = []
+    for (const [k, v] of Object.entries(prev.ces_judgments ?? {})) {
+      if (v === 'added') add.push(k)
+      else if (v === true || v === false) j[k] = v
+    }
+    judgments.value = j
+    added.value = add
+    comment.value = prev.comment ?? ''
+    locationWrong.value = !!prev.location_incorrect
+    indoorContent.value = !!prev.indoor
+    emit('unvalidated', data.feature_id)
+    emit('current', data)
+  } catch (e) {
+    error.value = `could not go back: ${e.message}`
   } finally {
     loadingNext.value = false
   }
@@ -177,10 +225,6 @@ function setJudgment(key, val) {
 function onKey(e) {
   const tag = e.target?.tagName
   if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return
-  if (defsOpen.value) {
-    if (e.key === 'Escape') defsOpen.value = false
-    return
-  }
   if (lightbox.value && e.key === 'Escape') {
     lightbox.value = false
     return
@@ -207,7 +251,7 @@ const pct = computed(() => {
 </script>
 
 <template>
-  <div class="vpanel">
+  <div ref="panelEl" class="vpanel">
     <!-- progress -->
     <div class="progress">
       <div class="progress-row">
@@ -230,75 +274,92 @@ const pct = computed(() => {
         ({{ progress?.skipped ?? 0 }} skipped) in {{ elapsedLabel }}.
       </p>
       <p class="muted">You can close this window now.</p>
-      <button class="secondary" @click="$emit('quit')">Back to start</button>
+      <div class="done-actions">
+        <button class="secondary" :disabled="!canGoBack" @click="goBack">← Previous post</button>
+        <button class="secondary" @click="$emit('quit')">Back to start</button>
+      </div>
     </div>
 
     <!-- current post -->
     <template v-else-if="current">
       <div class="post">
-        <div class="img-box" @click="!imgFailed && (lightbox = true)">
+        <div
+          class="img-box"
+          :class="{ loading: !imgLoaded && !imgFailed }"
+          @click="imgLoaded && (lightbox = true)"
+        >
           <img
             v-if="!imgFailed"
             :key="current.feature_id"
             :src="panelImg"
+            :class="{ shown: imgLoaded }"
             alt=""
+            @load="imgLoaded = true"
             @error="imgFailed = true"
           />
-          <div v-else class="img-fail">image failed to load<br /><span>use "Can't judge"</span></div>
-          <span v-if="!imgFailed" class="zoom-hint">click to enlarge</span>
+          <div v-if="!imgLoaded && !imgFailed" class="img-loading" aria-live="polite">
+            <span class="spinner"></span>
+            Loading image…
+          </div>
+          <div v-if="imgFailed" class="img-fail">image failed to load<br /><span>use "Skip"</span></div>
+          <span v-if="imgLoaded" class="zoom-hint">click to enlarge</span>
         </div>
         <p v-if="current.feature.properties.text" class="post-text">
           {{ current.feature.properties.text }}
         </p>
       </div>
 
-      <!-- CES validation -->
+      <!-- CES validation (definitions shown inline) -->
       <div class="step">
-        <div class="step-head">
-          <div class="step-label">Do you agree with the model's CES categories?</div>
-          <button type="button" class="defs-link" @click="defsOpen = true">
-            CES definitions
-          </button>
-        </div>
+        <div class="step-label">Do you agree with the model's CES categories?</div>
         <div v-if="!cesKeys.length" class="muted">No CES assigned by the model — nothing to judge here.</div>
         <div v-else class="chips">
           <div v-for="k in cesKeys" :key="k" class="chip" :class="{
             agreed: judgments[k] === true,
             disagreed: judgments[k] === false,
           }">
-            <span class="chip-short">{{ cesMeta[k]?.short ?? k }}</span>
-            <span class="chip-name">{{ cesMeta[k]?.name ?? k }}</span>
-            <button
-              type="button"
-              class="chip-btn no"
-              :class="{ on: judgments[k] === false }"
-              title="disagree"
-              @click="setJudgment(k, false)"
-            >✗</button>
-            <button
-              type="button"
-              class="chip-btn yes"
-              :class="{ on: judgments[k] === true }"
-              title="agree"
-              @click="setJudgment(k, true)"
-            >✓</button>
+            <div class="chip-head">
+              <span class="chip-short">{{ cesMeta[k]?.short ?? k }}</span>
+              <span class="chip-name">{{ cesMeta[k]?.name ?? k }}</span>
+              <button
+                type="button"
+                class="chip-btn no"
+                :class="{ on: judgments[k] === false }"
+                title="disagree"
+                @click="setJudgment(k, false)"
+              >✗</button>
+              <button
+                type="button"
+                class="chip-btn yes"
+                :class="{ on: judgments[k] === true }"
+                title="agree"
+                @click="setJudgment(k, true)"
+              >✓</button>
+            </div>
+            <p v-if="cesMeta[k]?.definition" class="def">{{ cesMeta[k].definition }}</p>
+            <p v-if="cesMeta[k]?.examples" class="ex"><em>Examples:</em> {{ cesMeta[k].examples }}</p>
           </div>
         </div>
         <div v-if="otherCesKeys.length" class="add-section">
           <div class="add-label">Add categories the model missed (optional)</div>
-          <div class="add-pills">
+          <div class="add-list">
             <button
               v-for="k in otherCesKeys"
               :key="k"
               type="button"
-              class="add-pill"
+              class="add-row"
               :class="{ on: added.includes(k) }"
-              :title="cesMeta[k]?.name ?? k"
               @click="toggleAdded(k)"
             >
               <span class="add-plus">{{ added.includes(k) ? '✓' : '+' }}</span>
-              {{ cesMeta[k]?.short ?? k }}
-              <span class="add-name">{{ cesMeta[k]?.name ?? '' }}</span>
+              <span class="add-body">
+                <span class="add-title">
+                  <span class="add-short">{{ cesMeta[k]?.short ?? k }}</span>
+                  <span class="add-name">{{ cesMeta[k]?.name ?? '' }}</span>
+                </span>
+                <span v-if="cesMeta[k]?.definition" class="def">{{ cesMeta[k].definition }}</span>
+                <span v-if="cesMeta[k]?.examples" class="ex"><em>Examples:</em> {{ cesMeta[k].examples }}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -324,8 +385,14 @@ const pct = computed(() => {
 
       <!-- actions -->
       <div class="actions">
+        <button
+          class="secondary"
+          :disabled="!canGoBack"
+          title="Go back to the previous post and change your answer"
+          @click="goBack"
+        >← Back</button>
         <div class="skip-wrap">
-          <button class="secondary" @click="skipOpen = !skipOpen">Can't judge</button>
+          <button class="secondary" @click="skipOpen = !skipOpen">Skip</button>
           <div v-if="skipOpen" class="skip-menu">
             <button @click="cantJudge('broken image')">Broken image</button>
             <button @click="cantJudge('language')">Language</button>
@@ -345,31 +412,6 @@ const pct = computed(() => {
       <img :src="fullImg" alt="" />
     </div>
 
-    <!-- CES definitions -->
-    <div v-if="defsOpen" class="defs-overlay" @click.self="defsOpen = false">
-      <div class="defs-card">
-        <div class="defs-header">
-          <h2>CES categories — definitions & examples</h2>
-          <button class="defs-close" @click="defsOpen = false">✕ close</button>
-        </div>
-        <div class="defs-list">
-          <div
-            v-for="v in session.ces_values"
-            :key="v.key"
-            class="defs-item"
-            :class="{ assigned: cesKeys.includes(v.key) }"
-          >
-            <div class="defs-title">
-              <span class="defs-short">{{ v.short }}</span>
-              <strong>{{ v.name }}</strong>
-              <span v-if="cesKeys.includes(v.key)" class="defs-tag">assigned to this post</span>
-            </div>
-            <p class="defs-def">{{ v.definition || 'No definition provided.' }}</p>
-            <p v-if="v.examples" class="defs-ex"><em>Examples:</em> {{ v.examples }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -428,6 +470,60 @@ const pct = computed(() => {
   max-height: 44vh;
   object-fit: contain;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.img-box img.shown {
+  opacity: 1;
+}
+.img-box.loading {
+  min-height: 260px;
+  cursor: progress;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.img-box.loading img {
+  position: absolute;
+  inset: 0;
+}
+.img-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 13px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #d1d5db;
+  border-top-color: #1b6cd9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .img-box.loading,
+  .spinner {
+    animation-duration: 3s;
+  }
 }
 .img-fail {
   padding: 40px 10px;
@@ -457,100 +553,16 @@ const pct = computed(() => {
   color: #333;
   white-space: pre-wrap;
 }
-.step-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-}
-.defs-link {
-  background: none;
-  border: 0;
-  color: #1b6cd9;
-  font-size: 12px;
-  cursor: pointer;
-  text-decoration: underline;
-  padding: 0;
-  white-space: nowrap;
-}
-.defs-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 120;
-  padding: 24px;
-  box-sizing: border-box;
-}
-.defs-card {
-  background: #fff;
-  border-radius: 12px;
-  width: min(680px, 100%);
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-.defs-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
-}
-.defs-header h2 {
-  margin: 0;
-  font-size: 16px;
-}
-.defs-close {
-  background: none;
-  border: 0;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-}
-.defs-list {
-  overflow-y: auto;
-  padding: 12px 20px 20px;
-}
-.defs-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-}
-.defs-item.assigned {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-.defs-title {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-}
-.defs-short {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #1b6cd9;
-  width: 34px;
-}
-.defs-tag {
-  font-size: 11px;
-  color: #1b6cd9;
-  background: #dbeafe;
-  border-radius: 999px;
-  padding: 1px 8px;
-}
-.defs-def {
-  margin: 4px 0 2px 42px;
+.def {
+  display: block;
+  margin: 4px 0 0;
   font-size: 13px;
   color: #333;
   line-height: 1.45;
 }
-.defs-ex {
-  margin: 0 0 2px 42px;
+.ex {
+  display: block;
+  margin: 2px 0 0;
   font-size: 12px;
   color: #777;
   line-height: 1.4;
@@ -571,59 +583,81 @@ const pct = computed(() => {
   color: #888;
   margin-bottom: 5px;
 }
-.add-pills {
+.add-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 5px;
 }
-.add-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  padding: 4px 9px;
+.add-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 8px 12px;
   border: 1.2px dashed #ccc;
-  border-radius: 999px;
+  border-radius: 10px;
   background: #fff;
   color: #555;
   cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.03em;
 }
-.add-pill .add-name {
-  font-weight: 400;
-  color: #999;
-  letter-spacing: 0;
-}
-.add-pill:hover {
+.add-row:hover {
   border-color: #93c5fd;
 }
-.add-pill.on {
+.add-row.on {
   border-style: solid;
   border-color: #1b6cd9;
   background: #dbeafe;
   color: #1b3e73;
 }
-.add-pill.on .add-name {
-  color: #1b6cd9;
+.add-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.add-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.add-short {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  width: 34px;
+  flex-shrink: 0;
+}
+.add-name {
+  font-weight: 600;
 }
 .add-plus {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  width: 14px;
+  flex-shrink: 0;
 }
 .chips {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .chip {
+  border: 1.5px solid #dbeafe;
+  background: #eff6ff;
+  border-radius: 12px;
+  padding: 8px 10px 10px 12px;
+  font-size: 13px;
+}
+.chip-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 1.5px solid #dbeafe;
-  background: #eff6ff;
-  border-radius: 999px;
-  padding: 6px 8px 6px 12px;
-  font-size: 13px;
+}
+.chip .def,
+.chip .ex {
+  margin-left: 42px;
 }
 .chip.agreed {
   border-color: #6ee7b7;
@@ -731,8 +765,16 @@ const pct = computed(() => {
   color: #555;
   cursor: pointer;
 }
-.secondary:hover {
+.secondary:hover:not(:disabled) {
   background: #f5f5f5;
+}
+.secondary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.done-actions {
+  display: flex;
+  gap: 8px;
 }
 .skip-wrap {
   position: relative;
