@@ -1,27 +1,36 @@
 #!/usr/bin/env python3
 """One-line-per-dataset summary: datasets, posts, reachable images.
 
-    cd server && uv sync --extra cli && uv run ../scripts/data_summary.py
+    python3 scripts/data_summary.py
 
 - datasets: files in data/geo-datasets/filtered/ (what the server serves).
 - posts: features in each file.
 - reachable: the post's image_name exists as a readable file (symlinks are
-  followed, so broken symlinks count as unreachable) in
-  data/images/<base_media_path>/orig and, separately, .../thumb.
+  listed) in data/images/<base_media_path>/orig and, separately, .../thumb.
+  Each folder is listed once (one directory read) and names are checked
+  against that set, so there is no per-file round trip on slow mounts.
+  Symlinks are taken as listed: a broken one still counts.
 """
 
 import json
+import os
 from pathlib import Path
-
-from tqdm import tqdm
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 FILTERED = DATA / "geo-datasets" / "filtered"
 IMAGES = DATA / "images"
 
 
-def reachable(folder: Path, names: list[str], desc: str) -> int:
-    return sum((folder / n).is_file() for n in tqdm(names, desc=desc, unit="img", leave=False))
+_listings: dict[Path, set[str]] = {}
+
+
+def reachable(folder: Path, names: list[str]) -> int:
+    if folder not in _listings:
+        try:
+            _listings[folder] = set(os.listdir(folder))
+        except OSError:
+            _listings[folder] = set()
+    return sum(n in _listings[folder] for n in names)
 
 
 def main() -> None:
@@ -29,14 +38,14 @@ def main() -> None:
     config = json.loads(cfg_path.read_text("utf-8")).get("locations", {}) if cfg_path.is_file() else {}
 
     rows = []
-    for path in tqdm(sorted(FILTERED.glob("*.json")), desc="datasets", unit="ds"):
+    for path in sorted(FILTERED.glob("*.json")):
         feats = json.loads(path.read_text("utf-8")).get("features", [])
         names = [n for f in feats if (n := f.get("properties", {}).get("image_name"))]
         base = config.get(path.stem, {}).get("base_media_path", path.stem)
         rows.append((
             path.stem, len(feats), len(names),
-            reachable(IMAGES / base / "orig", names, f"{path.stem} orig"),
-            reachable(IMAGES / base / "thumb", names, f"{path.stem} thumb"),
+            reachable(IMAGES / base / "orig", names),
+            reachable(IMAGES / base / "thumb", names),
         ))
 
     head = ("dataset", "posts", "w/ image", "orig ok", "thumb ok")
