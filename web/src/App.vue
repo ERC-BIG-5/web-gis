@@ -75,6 +75,13 @@ function onValidated({ feature, feature_id, status }) {
   }
 }
 
+function onUnvalidated(featureId) {
+  doneFC.value = {
+    type: 'FeatureCollection',
+    features: doneFC.value.features.filter((f) => f.properties?.id !== featureId),
+  }
+}
+
 function logout() {
   sessionStorage.removeItem(SESSION_KEY)
   session.value = null
@@ -453,6 +460,7 @@ function fitPopup(map, popup) {
         :session="session"
         @current="onCurrent"
         @validated="onValidated"
+        @unvalidated="onUnvalidated"
         @quit="logout"
       />
     </div>

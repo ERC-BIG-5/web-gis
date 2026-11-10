@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 const props = defineProps({
   session: { type: Object, required: true }, // {session_id, target, ces_values, ...}
 })
-const emit = defineEmits(['current', 'validated', 'quit'])
+const emit = defineEmits(['current', 'validated', 'unvalidated', 'quit'])
 
 const current = ref(null) // /next payload
 const progress = ref(null)
@@ -104,6 +104,49 @@ async function loadNext() {
     emit('current', data)
   } catch (e) {
     error.value = `failed to load next post: ${e.message}`
+  } finally {
+    loadingNext.value = false
+  }
+}
+
+// posts already decided in this session (validated, not relevant or skipped)
+const canGoBack = computed(
+  () =>
+    !loadingNext.value &&
+    (progress.value?.validated ?? 0) + (progress.value?.skipped ?? 0) > 0,
+)
+
+async function goBack() {
+  if (!canGoBack.value) return
+  loadingNext.value = true
+  error.value = ''
+  try {
+    const res = await fetch(`session/${props.session.session_id}/back`, { method: 'POST' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      throw new Error(body?.detail ?? `HTTP ${res.status}`)
+    }
+    const data = await res.json()
+    progress.value = data.progress
+    doneAll.value = false
+    current.value = data
+    resetForm()
+    // pre-fill the form with the answers given last time
+    const prev = data.previous ?? {}
+    const j = {}
+    const add = []
+    for (const [k, v] of Object.entries(prev.ces_judgments ?? {})) {
+      if (v === 'added') add.push(k)
+      else if (v === true || v === false) j[k] = v
+    }
+    judgments.value = j
+    added.value = add
+    comment.value = prev.comment ?? ''
+    locationWrong.value = !!prev.location_incorrect
+    emit('unvalidated', data.feature_id)
+    emit('current', data)
+  } catch (e) {
+    error.value = `could not go back: ${e.message}`
   } finally {
     loadingNext.value = false
   }
@@ -225,7 +268,10 @@ const pct = computed(() => {
         ({{ progress?.skipped ?? 0 }} skipped) in {{ elapsedLabel }}.
       </p>
       <p class="muted">You can close this window now.</p>
-      <button class="secondary" @click="$emit('quit')">Back to start</button>
+      <div class="done-actions">
+        <button class="secondary" :disabled="!canGoBack" @click="goBack">← Previous post</button>
+        <button class="secondary" @click="$emit('quit')">Back to start</button>
+      </div>
     </div>
 
     <!-- current post -->
@@ -323,6 +369,12 @@ const pct = computed(() => {
 
       <!-- actions -->
       <div class="actions">
+        <button
+          class="secondary"
+          :disabled="!canGoBack"
+          title="Go back to the previous post and change your answer"
+          @click="goBack"
+        >← Back</button>
         <div class="skip-wrap">
           <button class="secondary" @click="skipOpen = !skipOpen">Skip</button>
           <div v-if="skipOpen" class="skip-menu">
@@ -643,8 +695,16 @@ const pct = computed(() => {
   color: #555;
   cursor: pointer;
 }
-.secondary:hover {
+.secondary:hover:not(:disabled) {
   background: #f5f5f5;
+}
+.secondary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.done-actions {
+  display: flex;
+  gap: 8px;
 }
 .skip-wrap {
   position: relative;

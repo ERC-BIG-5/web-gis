@@ -531,6 +531,54 @@ def session_validate(session_id: int, payload: dict):
     return {"status": status, "progress": prog}
 
 
+@app.post("/session/{session_id}/back")
+def session_back(session_id: int):
+    """Undo the most recent decision of this session: delete its validation
+    row, put the post back to 'pending' and return it (like /next) together
+    with the previous answers so the form can be pre-filled."""
+    with _db() as conn:
+        _progress(conn, session_id)  # 404 on unknown session
+        last = conn.execute(
+            "SELECT * FROM validations WHERE session_id=? ORDER BY id DESC LIMIT 1",
+            (session_id,),
+        ).fetchone()
+        if last is None:
+            raise HTTPException(status_code=409, detail="no previous post")
+        ses = conn.execute(
+            "SELECT case_study FROM sessions WHERE id=?", (session_id,)
+        ).fetchone()
+        ds = _dataset(ses["case_study"])
+        feature = ds["by_id"].get(last["feature_id"])
+        if feature is None:
+            raise HTTPException(
+                status_code=409, detail="previous post no longer in dataset"
+            )
+        row = conn.execute(
+            "SELECT position FROM queue WHERE session_id=? AND feature_id=?",
+            (session_id, last["feature_id"]),
+        ).fetchone()
+        conn.execute(
+            "UPDATE queue SET status='pending' WHERE session_id=? AND feature_id=?",
+            (session_id, last["feature_id"]),
+        )
+        conn.execute("DELETE FROM validations WHERE id=?", (last["id"],))
+        prog = _progress(conn, session_id)
+    return {
+        "done": False,
+        "position": row["position"] if row else None,
+        "feature_id": last["feature_id"],
+        "feature": feature,
+        "base_media_path": ds["base_media_path"],
+        "progress": prog,
+        "previous": {
+            "ces_judgments": json.loads(last["ces_judgments"] or "{}"),
+            "comment": last["comment"],
+            "location_incorrect": bool(last["location_incorrect"]),
+            "skipped_reason": last["skipped_reason"],
+        },
+    }
+
+
 @app.get("/session/{session_id}/progress")
 def session_progress(session_id: int):
     with _db() as conn:
